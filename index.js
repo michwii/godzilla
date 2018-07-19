@@ -1,6 +1,12 @@
 var request = require('request');
 var console = {};
 
+/**
+    Retrieving all the application settings that are mandatory. 
+    You should create a client principal in your azure subscription that have the right to READ / UPDATE and DELETE resources in Azure.
+    list of resource groups to exlude separated by a comma. Not case sensitive. You should put at least the resource group where your Godzilla stands.
+    Value of the parameter delay_before_destruction should be set in seconds.
+*/
 var subscriptionId = process.env.SUBSCRIPTION_ID ;
 var tenant_id = process.env.TENANT_ID;
 var client_id = process.env.CLIENT_ID;
@@ -42,6 +48,10 @@ module.exports = async function (context, myTimer) {
 
 };
 
+/**
+   Making sure all the Application Settings are set and not empty 
+   @return a boolean wheter or not the application can start.
+*/
 var allRequirementsArePresent = function(){
     return subscriptionId && tenant_id && client_id && client_secret && resource_group_exclusions && delay_before_destruction ;
 }
@@ -63,16 +73,25 @@ var deleteUnUsedResourceGroups = async function (){
     Promise.all(resourceGroupsToDeletePromised);
 }
 
+/**
+    @return Array of Ressource group 
+*/
 var getResourceGroupList = async function(subscriptionId, accessToken){
     var url = "https://management.azure.com/subscriptions/"+ subscriptionId +"/resourcegroups?api-version=2017-05-10";
     return getDataFromMSAPI(accessToken, url) ;
 }
 
+/**
+    @return Array of Deployment History for a specific resource group
+*/
 var getDeploymentsHistoryByResourceGroup = async function(subscriptionId, accessToken, resourceGroupName) {
     var url = "https://management.azure.com/subscriptions/" + subscriptionId + "/resourcegroups/" + resourceGroupName + "/providers/Microsoft.Resources/deployments/?api-version=2018-02-01";
     return getDataFromMSAPI(accessToken, url) ;
 }
 
+/**
+    @return a boolean Wheter or not we can delete the resource group.
+*/
 var canIToDestroyThisResourceGroup = function(deploymentsHistory, exlusions, delayBeforeDestroying) {
     var latestDeployment = getLastDeployment(deploymentsHistory);
     var deadline = new Date();
@@ -80,6 +99,11 @@ var canIToDestroyThisResourceGroup = function(deploymentsHistory, exlusions, del
     return deadline >= latestDeployment;
 }
 
+/**
+    @return the latest deployement date of a resource group.
+    For empty resource groups or resource group without deployment (deploying a storage account is not considered as a deployment),
+    current timestamp in date format is returned.
+*/
 var getLastDeployment = function(deploymentsHistory){
     var lastDate = new Date();
     lastDate.setTime(0);
@@ -97,6 +121,9 @@ var deleteResourceGroup = async function(subscriptionId, accessToken, resourceGr
     return getDataFromMSAPI(accessToken, url, "DELETE") ;
 }
 
+/**
+    return accessToken that can be used to perform action on Azure REST API.
+*/
 var getAccessToken = async function(tenant_id, client_id, client_secret){
     return new Promise((resolved, rejected) => {
         var url = "https://login.microsoftonline.com/" + tenant_id + "/OAuth2/Token";
@@ -116,6 +143,10 @@ var getAccessToken = async function(tenant_id, client_id, client_secret){
     });
 };
 
+/**
+    Helper that getting result from MS API. It abstract the use of Request librairy.
+    @return MS API request result.
+*/
 var getDataFromMSAPI = async function(accessToken, url, method){
     return new Promise((resolved, rejected) => {
         method = (method) ? method : 'GET';
