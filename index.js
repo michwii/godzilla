@@ -1,6 +1,5 @@
 var request = require('request');
 var async = require('async');
-var commons = require("../shared/commons");
 var console = {};
 
 var subscriptionId = process.env.SUBSCRIPTION_ID ;
@@ -33,7 +32,7 @@ module.exports = async function (context, myTimer) {
 
 
 var deleteUnUsedResourceGroups = async function (){
-    var accessToken = await commons.getAccessToken(tenant_id, client_id, client_secret);
+    var accessToken = await getAccessToken(tenant_id, client_id, client_secret);
     var resourceGroups = await getResourceGroupList(subscriptionId, accessToken);
     var resourceGroupNamesToDelete = new Array();
     for(var resourceGroup of resourceGroups){
@@ -51,12 +50,12 @@ var deleteUnUsedResourceGroups = async function (){
 
 var getResourceGroupList = async function(subscriptionId, accessToken){
     var url = "https://management.azure.com/subscriptions/"+ subscriptionId +"/resourcegroups?api-version=2017-05-10";
-    return commons.getDataFromMSAPI(accessToken, url) ;
+    return getDataFromMSAPI(accessToken, url) ;
 }
 
 var getDeploymentsHistoryByResourceGroup = async function(subscriptionId, accessToken, resourceGroupName) {
     var url = "https://management.azure.com/subscriptions/" + subscriptionId + "/resourcegroups/" + resourceGroupName + "/providers/Microsoft.Resources/deployments/?api-version=2018-02-01";
-    return commons.getDataFromMSAPI(accessToken, url) ;
+    return getDataFromMSAPI(accessToken, url) ;
 }
 
 var canIToDestroyThisResourceGroup = function(deploymentsHistory, exlusions, delayBeforeDestroying) {
@@ -80,5 +79,44 @@ var getLastDeployment = function(deploymentsHistory){
 
 var deleteResourceGroup = async function(subscriptionId, accessToken, resourceGroupName){
     var url = "https://management.azure.com/subscriptions/"+subscriptionId+"/resourcegroups/" + resourceGroupName + "?api-version=2018-02-01";
-    return commons.getDataFromMSAPI(accessToken, url, "DELETE") ;
+    return getDataFromMSAPI(accessToken, url, "DELETE") ;
+}
+
+var getAccessToken = async function(tenant_id, client_id, client_secret){
+    return new Promise((resolved, rejected) => {
+        var url = "https://login.microsoftonline.com/" + tenant_id + "/OAuth2/Token";
+        request.post({url:url, form: {
+            grant_type : "client_credentials",
+            client_id : client_id,
+            client_secret : client_secret,
+            resource : "https://management.core.windows.net/"
+        }}, function(err, httpResponse, body){
+            if(err){
+                rejected(err);
+            }else{
+                var accessToken = JSON.parse(body).access_token;
+                resolved(accessToken);
+            }
+        });
+    });
+};
+
+var getDataFromMSAPI = async function(accessToken, url, method){
+    return new Promise((resolved, rejected) => {
+        method = (method) ? method : 'GET';
+        request({
+            url : url,
+            method : method,
+            'auth': {
+                'bearer': accessToken
+            }
+        }, function(err, httpResponse, body){
+            if(err){
+                rejected(err);
+            }else{
+                var dataToReturn = JSON.parse(body).value;
+                resolved(dataToReturn);
+            }
+        });
+    });
 }
