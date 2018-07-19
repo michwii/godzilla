@@ -19,16 +19,32 @@ module.exports = async function (context, myTimer) {
     {
         context.log('JavaScript is running late!');
     }
-    console.log("Resource groups that are going to be ignored : ");
-    console.log(resource_group_exclusions);   
-    console.log("For the others, they will be deleted if they were created before : ");
-    console.log(deadline);  
-    console.log("Starting to analyse...");
-    await deleteUnUsedResourceGroups();
-    console.log("Work completed...");
-    context.done();
+
+    if(allRequirementsArePresent()){
+        console.log("Resource groups that are going to be ignored : ");
+        console.log(resource_group_exclusions);   
+        console.log("For the others, they will be deleted if they were created before : ");
+        console.log(deadline);  
+        console.log("Starting to analyse...");
+        await deleteUnUsedResourceGroups();
+        console.log("Work completed...");
+        context.done();
+    }else{
+        console.log("Sorry but not all the required environment variables have been set...");
+        console.log("To work properly, this application needs to be set in the application settings the following parameters : ");
+        console.log("TENANT_ID");
+        console.log("SUBSCRIPTION_ID");
+        console.log("DELAY_BEFORE_DESTRUCTION");
+        console.log("CLIENT_ID");
+        console.log("CLIENT_SECRET");
+        context.done();
+    }
+
 };
 
+var allRequirementsArePresent = function(){
+    return subscriptionId && tenant_id && client_id && client_secret && resource_group_exclusions && delay_before_destruction ;
+}
 
 var deleteUnUsedResourceGroups = async function (){
     var accessToken = await getAccessToken(tenant_id, client_id, client_secret);
