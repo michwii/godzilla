@@ -1,5 +1,4 @@
 var request = require('request');
-var async = require('async');
 var console = {};
 
 var subscriptionId = process.env.SUBSCRIPTION_ID ;
