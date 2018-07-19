@@ -3,7 +3,7 @@ Godzilla is a simple Azure Function that you should schedule every day. This fun
 
 ### How Does it work
 Godzilla scans your subscription and extract a list of resource groups to delete according to 2 criterias :
-1. Wheter or not the resource group is inside an exlusion list (application setting parameter = RESOURCE_GROUP_EXCLUSIONS)
+1. Whether or not the resource group is inside an exlusion list (application setting parameter = RESOURCE_GROUP_EXCLUSIONS)
 2. The delay to wait before destroying a resource group (application setting parameter = DELAY_BEFORE_DESTRUCTION)
 If you have multiple subscriptions, you will have to have several instances of Godzilla, one in each subscription.
 For the DELAY_BEFORE_DESTRUCTION parameter, the application will extract the **deployment history** of the resource group. 
@@ -19,7 +19,7 @@ Delay before destruction (value should be written in seconds) | Last deployment 
 
 
 #### When to use it
-Perfect for non production resources. Allow you to clean your subscription of non utilized resources and reduce your bill.
+Perfect for **non production** resources. Allows you to clean your subscription of non utilized resources and reduce your bill.
 
 #### When to avoid it
 Avoid to deploy this Function in a Production environment. If you are mixing production and non production resources in the same souscription, you will have to add in the resource groups to exlude all the production resource group. The best practice would have been to segregate production resources and non production resources in different subscriptions.
