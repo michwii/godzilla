@@ -11,7 +11,9 @@ var subscriptionId = process.env.SUBSCRIPTION_ID ;
 var tenant_id = process.env.TENANT_ID;
 var client_id = process.env.CLIENT_ID;
 var client_secret = process.env.CLIENT_SECRET;
-var resource_group_exclusions = process.env.RESOURCE_GROUP_EXCLUSIONS.split(',').map(function(x){ return x.toUpperCase();});
+var resource_group_exclusions = process.env.RESOURCE_GROUP_EXCLUSIONS
+    ? process.env.RESOURCE_GROUP_EXCLUSIONS.split(',').map(function(x){ return x.toUpperCase();})
+    : null;
 var delay_before_destruction = process.env.DELAY_BEFORE_DESTRUCTION;
 
 module.exports = async function (context, myTimer) {
