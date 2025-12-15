@@ -12,6 +12,7 @@ permissions:
 
 env:
   NODE_VERSION: '20.x'
+  DELAY_BEFORE_DESTRUCTION: ${{ vars.DELAY_BEFORE_DESTRUCTION }}
 
 jobs:
   deploy:
@@ -38,6 +39,21 @@ jobs:
         with:
           creds: >-
             {"clientId":"${{ secrets.AZURE_CLIENT_ID }}","clientSecret":"${{ secrets.AZURE_CLIENT_SECRET }}","subscriptionId":"${{ secrets.AZURE_SUBSCRIPTION_ID }}","tenantId":"${{ secrets.AZURE_TENANT_ID }}"}
+
+      - name: Propagate function app settings
+        env:
+          FUNCTION_APP: ${{ secrets.AZURE_FUNCTIONAPP_NAME }}
+          RESOURCE_GROUP: ${{ secrets.AZURE_RESOURCE_GROUP }}
+          DELAY_BEFORE_DESTRUCTION: ${{ env.DELAY_BEFORE_DESTRUCTION }}
+        run: |
+          if [ -z "$DELAY_BEFORE_DESTRUCTION" ]; then
+            echo "Repository variable DELAY_BEFORE_DESTRUCTION is not defined. Please add it under Settings > Secrets and variables > Actions > Variables."
+            exit 1
+          fi
+          az functionapp config appsettings set \
+            --name "$FUNCTION_APP" \
+            --resource-group "$RESOURCE_GROUP" \
+            --settings "DELAY_BEFORE_DESTRUCTION=$DELAY_BEFORE_DESTRUCTION"
 
       - name: Deploy to Azure Functions
         uses: azure/functions-action@v1
