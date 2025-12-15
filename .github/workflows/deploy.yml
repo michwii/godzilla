@@ -14,17 +14,10 @@ env:
   NODE_VERSION: '20.x'
 
 jobs:
-  deploy:
+  deploy-test:
+    if: github.ref == 'refs/heads/test'
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - branch: test
-            environment: test
-          - branch: staging
-            environment: staging
-    if: ${{ github.ref == format('refs/heads/{0}', matrix.branch) }}
-    environment: ${{ matrix.environment }}
+    environment: test
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -48,7 +41,39 @@ jobs:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Deploy to Azure Functions
-        uses: Azure/functions-action@v1
+        uses: azure/functions-action@v1
+        with:
+          app-name: ${{ secrets.AZURE_FUNCTIONAPP_NAME }}
+          package: functionapp.zip
+
+  deploy-staging:
+    if: github.ref == 'refs/heads/staging'
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install production dependencies
+        run: npm install --only=production
+
+      - name: Archive function package
+        run: |
+          zip -r functionapp.zip . -x ".git/*" ".github/*" "functionapp.zip"
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy to Azure Functions
+        uses: azure/functions-action@v1
         with:
           app-name: ${{ secrets.AZURE_FUNCTIONAPP_NAME }}
           package: functionapp.zip
