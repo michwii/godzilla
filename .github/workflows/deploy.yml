@@ -12,7 +12,6 @@ permissions:
 
 env:
   NODE_VERSION: '20.x'
-  DELAY_BEFORE_DESTRUCTION: ${{ vars.DELAY_BEFORE_DESTRUCTION }}
 
 jobs:
   deploy:
@@ -44,16 +43,33 @@ jobs:
         env:
           FUNCTION_APP: ${{ secrets.AZURE_FUNCTIONAPP_NAME }}
           RESOURCE_GROUP: ${{ secrets.AZURE_RESOURCE_GROUP }}
-          DELAY_BEFORE_DESTRUCTION: ${{ env.DELAY_BEFORE_DESTRUCTION }}
+          REPO_DELAY: ${{ vars.DELAY_BEFORE_DESTRUCTION }}
+          SECRET_DELAY: ${{ secrets.DELAY_BEFORE_DESTRUCTION }}
         run: |
-          if [ -z "$DELAY_BEFORE_DESTRUCTION" ]; then
-            echo "Repository variable DELAY_BEFORE_DESTRUCTION is not defined. Please add it under Settings > Secrets and variables > Actions > Variables."
+          CURRENT_DELAY=$(az functionapp config appsettings list \
+            --name "$FUNCTION_APP" \
+            --resource-group "$RESOURCE_GROUP" \
+            --query "[?name=='DELAY_BEFORE_DESTRUCTION'].value" \
+            -o tsv)
+
+          if [ -n "$REPO_DELAY" ]; then
+            DELAY_VALUE="$REPO_DELAY"
+          elif [ -n "$SECRET_DELAY" ]; then
+            DELAY_VALUE="$SECRET_DELAY"
+          else
+            DELAY_VALUE="$CURRENT_DELAY"
+          fi
+
+          if [ -z "$DELAY_VALUE" ]; then
+            echo "No DELAY_BEFORE_DESTRUCTION value was provided via repository variable/secret and none exists on the Function App."
+            echo "Please configure either a repository variable (recommended) or a secret named DELAY_BEFORE_DESTRUCTION."
             exit 1
           fi
+
           az functionapp config appsettings set \
             --name "$FUNCTION_APP" \
             --resource-group "$RESOURCE_GROUP" \
-            --settings "DELAY_BEFORE_DESTRUCTION=$DELAY_BEFORE_DESTRUCTION"
+            --settings "DELAY_BEFORE_DESTRUCTION=$DELAY_VALUE"
 
       - name: Deploy to Azure Functions
         uses: azure/functions-action@v1
