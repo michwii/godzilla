@@ -44,6 +44,8 @@ Value of the parameter DELAY_BEFORE_DESTRUCTION should be set in seconds.
 2. Create an Azure Function called Godzilla-YOUR_COMPANY in NODE JS that is scheduled and not triggered by an HTTP request.
 Copy / Paste the source code present in the index.js in your Azure Function.
 3. Add the **6** mandatory application settings in your Azure Function.
+4. (Recommended) In your GitHub repository settings, under **Secrets and variables → Actions → Variables**, create a variable named `DELAY_BEFORE_DESTRUCTION` with the delay (in seconds) you want. If you prefer, you can store it as a secret named `DELAY_BEFORE_DESTRUCTION` instead.
+5. Still under **Secrets and variables → Actions → Secrets**, create a secret named `AZURE_RESOURCE_GROUP` that contains the resource group of the Azure Function. The deployment workflow relies on these values to keep the Azure App Settings in sync. If neither the variable nor the secret is set, the workflow will reuse the existing value already configured in the Azure Function, and only fail if none can be found.
 4. Communicate about your Godzilla within your company or otherwise you will create surprises.
 
 ### Contribution
