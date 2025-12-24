@@ -33,6 +33,76 @@ jobs:
         run: |
           zip -r functionapp.zip . -x ".git/*" ".github/*" "functionapp.zip"
 
+      - name: Provision infra (RG, Storage, App Insights, Function App)
+        env:
+          FUNCTION_APP: ${{ secrets.AZURE_FUNCTIONAPP_NAME }}
+          RESOURCE_GROUP: ${{ secrets.AZURE_RESOURCE_GROUP }}
+          SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          LOCATION: "westeurope"
+        run: |
+          set -euo pipefail
+          az account set --subscription "$SUBSCRIPTION_ID"
+
+          echo "Ensuring resource group $RESOURCE_GROUP in $LOCATION"
+          az group create --name "$RESOURCE_GROUP" --location "$LOCATION" --output none
+
+          STORAGE_ACCOUNT="$(echo "${FUNCTION_APP//-/}sa" | tr '[:upper:]' '[:lower:]')"
+          STORAGE_ACCOUNT="${STORAGE_ACCOUNT:0:22}"
+          if ! az storage account show --name "$STORAGE_ACCOUNT" --resource-group "$RESOURCE_GROUP" --output none 2>/dev/null; then
+            echo "Creating storage account $STORAGE_ACCOUNT"
+            az storage account create \
+              --name "$STORAGE_ACCOUNT" \
+              --resource-group "$RESOURCE_GROUP" \
+              --location "$LOCATION" \
+              --sku Standard_LRS \
+              --kind StorageV2 \
+              --https-only true \
+              --min-tls-version TLS1_2 \
+              --output none
+          else
+            echo "Storage account $STORAGE_ACCOUNT already exists"
+          fi
+
+          echo "Ensuring Application Insights (workspace-based)"
+          AI_NAME="ai-${FUNCTION_APP}"
+          if ! az monitor app-insights component show --app "$AI_NAME" --resource-group "$RESOURCE_GROUP" --output none 2>/dev/null; then
+            az monitor app-insights component create \
+              --app "$AI_NAME" \
+              --location "$LOCATION" \
+              --kind web \
+              --resource-group "$RESOURCE_GROUP" \
+              --application-type other \
+              --output none
+          fi
+          AI_CONN=$(az monitor app-insights component show --app "$AI_NAME" --resource-group "$RESOURCE_GROUP" --query "connectionString" -o tsv)
+
+          echo "Ensuring Function App"
+          if ! az functionapp show --name "$FUNCTION_APP" --resource-group "$RESOURCE_GROUP" --output none 2>/dev/null; then
+            az functionapp create \
+              --name "$FUNCTION_APP" \
+              --resource-group "$RESOURCE_GROUP" \
+              --consumption-plan-location "$LOCATION" \
+              --storage-account "$STORAGE_ACCOUNT" \
+              --runtime node \
+              --functions-version 4 \
+              --os-type Linux \
+              --assign-identity \
+              --output none
+          fi
+
+          echo "Apply core app settings"
+          STORAGE_CONN=$(az storage account show-connection-string --name "$STORAGE_ACCOUNT" --resource-group "$RESOURCE_GROUP" --query connectionString -o tsv)
+          az functionapp config appsettings set \
+            --name "$FUNCTION_APP" \
+            --resource-group "$RESOURCE_GROUP" \
+            --settings \
+              "FUNCTIONS_WORKER_RUNTIME=node" \
+              "FUNCTIONS_EXTENSION_VERSION=~4" \
+              "AzureWebJobsStorage=$STORAGE_CONN" \
+              "APPLICATIONINSIGHTS_CONNECTION_STRING=$AI_CONN" \
+              "WEBSITE_ENABLE_SYNC_UPDATE_SITE=true" \
+            --output none
+
       - name: Azure login
         uses: azure/login@v2
         with:
