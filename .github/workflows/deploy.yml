@@ -99,6 +99,13 @@ jobs:
           echo "Apply core app settings"
           STORAGE_CONN=$(az storage account show-connection-string --name "$STORAGE_ACCOUNT" --resource-group "$RESOURCE_GROUP" --query connectionString -o tsv)
           CONTENT_SHARE="$(echo "func-${FUNCTION_APP}" | tr '[:upper:]' '[:lower:]' | cut -c1-60)"
+          echo "Ensuring storage file share $CONTENT_SHARE"
+          az storage share create \
+            --name "$CONTENT_SHARE" \
+            --connection-string "$STORAGE_CONN" \
+            --quota 50 \
+            --output none
+
           az functionapp config appsettings set \
             --name "$FUNCTION_APP" \
             --resource-group "$RESOURCE_GROUP" \
