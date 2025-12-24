@@ -124,9 +124,27 @@ jobs:
         env:
           FUNCTION_APP: ${{ secrets.AZURE_FUNCTIONAPP_NAME }}
           RESOURCE_GROUP: ${{ secrets.AZURE_RESOURCE_GROUP }}
+          CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          RG_EXCLUSIONS: ${{ secrets.RESOURCE_GROUP_EXCLUSIONS }}
           REPO_DELAY: ${{ vars.DELAY_BEFORE_DESTRUCTION }}
           SECRET_DELAY: ${{ secrets.DELAY_BEFORE_DESTRUCTION }}
         run: |
+          set -euo pipefail
+
+          MISSING=0
+          for v in CLIENT_ID CLIENT_SECRET TENANT_ID SUBSCRIPTION_ID RG_EXCLUSIONS; do
+            if [ -z "${!v:-}" ]; then
+              echo "Missing required secret: $v"
+              MISSING=1
+            fi
+          done
+          if [ "$MISSING" -eq 1 ]; then
+            exit 1
+          fi
+
           CURRENT_DELAY=$(az functionapp config appsettings list \
             --name "$FUNCTION_APP" \
             --resource-group "$RESOURCE_GROUP" \
@@ -150,7 +168,13 @@ jobs:
           az functionapp config appsettings set \
             --name "$FUNCTION_APP" \
             --resource-group "$RESOURCE_GROUP" \
-            --settings "DELAY_BEFORE_DESTRUCTION=$DELAY_VALUE"
+            --settings \
+              "CLIENT_ID=$CLIENT_ID" \
+              "CLIENT_SECRET=$CLIENT_SECRET" \
+              "TENANT_ID=$TENANT_ID" \
+              "SUBSCRIPTION_ID=$SUBSCRIPTION_ID" \
+              "RESOURCE_GROUP_EXCLUSIONS=$RG_EXCLUSIONS" \
+              "DELAY_BEFORE_DESTRUCTION=$DELAY_VALUE"
 
       - name: Deploy to Azure Functions
         uses: azure/functions-action@v1
