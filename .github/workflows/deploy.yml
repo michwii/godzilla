@@ -33,6 +33,12 @@ jobs:
         run: |
           zip -r functionapp.zip . -x ".git/*" ".github/*" "functionapp.zip"
 
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          creds: >-
+            {"clientId":"${{ secrets.AZURE_CLIENT_ID }}","clientSecret":"${{ secrets.AZURE_CLIENT_SECRET }}","subscriptionId":"${{ secrets.AZURE_SUBSCRIPTION_ID }}","tenantId":"${{ secrets.AZURE_TENANT_ID }}"}
+
       - name: Provision infra (RG, Storage, App Insights, Function App)
         env:
           FUNCTION_APP: ${{ secrets.AZURE_FUNCTIONAPP_NAME }}
@@ -102,12 +108,6 @@ jobs:
               "APPLICATIONINSIGHTS_CONNECTION_STRING=$AI_CONN" \
               "WEBSITE_ENABLE_SYNC_UPDATE_SITE=true" \
             --output none
-
-      - name: Azure login
-        uses: azure/login@v2
-        with:
-          creds: >-
-            {"clientId":"${{ secrets.AZURE_CLIENT_ID }}","clientSecret":"${{ secrets.AZURE_CLIENT_SECRET }}","subscriptionId":"${{ secrets.AZURE_SUBSCRIPTION_ID }}","tenantId":"${{ secrets.AZURE_TENANT_ID }}"}
 
       - name: Propagate function app settings
         env:
