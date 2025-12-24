@@ -98,6 +98,7 @@ jobs:
 
           echo "Apply core app settings"
           STORAGE_CONN=$(az storage account show-connection-string --name "$STORAGE_ACCOUNT" --resource-group "$RESOURCE_GROUP" --query connectionString -o tsv)
+          CONTENT_SHARE="$(echo "func-${FUNCTION_APP}" | tr '[:upper:]' '[:lower:]' | cut -c1-60)"
           az functionapp config appsettings set \
             --name "$FUNCTION_APP" \
             --resource-group "$RESOURCE_GROUP" \
@@ -105,8 +106,11 @@ jobs:
               "FUNCTIONS_WORKER_RUNTIME=node" \
               "FUNCTIONS_EXTENSION_VERSION=~4" \
               "AzureWebJobsStorage=$STORAGE_CONN" \
+              "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING=$STORAGE_CONN" \
+              "WEBSITE_CONTENTSHARE=$CONTENT_SHARE" \
               "APPLICATIONINSIGHTS_CONNECTION_STRING=$AI_CONN" \
               "WEBSITE_ENABLE_SYNC_UPDATE_SITE=true" \
+              "WEBSITE_RUN_FROM_PACKAGE=1" \
             --output none
 
       - name: Propagate function app settings
