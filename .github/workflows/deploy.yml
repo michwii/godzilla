@@ -95,6 +95,12 @@ jobs:
               --assign-identity \
               --output none
           fi
+          echo "Forcing Node 20 runtime"
+          az functionapp config set \
+            --name "$FUNCTION_APP" \
+            --resource-group "$RESOURCE_GROUP" \
+            --linux-fx-version "Node|20" \
+            --output none
 
           echo "Apply core app settings"
           STORAGE_CONN=$(az storage account show-connection-string --name "$STORAGE_ACCOUNT" --resource-group "$RESOURCE_GROUP" --query connectionString -o tsv)
@@ -117,6 +123,7 @@ jobs:
               "WEBSITE_CONTENTSHARE=$CONTENT_SHARE" \
               "APPLICATIONINSIGHTS_CONNECTION_STRING=$AI_CONN" \
               "WEBSITE_ENABLE_SYNC_UPDATE_SITE=true" \
+              "WEBSITE_NODE_DEFAULT_VERSION=~20" \
               "WEBSITE_RUN_FROM_PACKAGE=1" \
             --output none
 
