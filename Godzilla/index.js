@@ -36,7 +36,6 @@ module.exports = async function (context, myTimer) {
         console.log("Starting to analyse...");
         await deleteUnUsedResourceGroups();
         console.log("Work completed...");
-        context.done();
     }else{
         console.log("Sorry but not all the required environment variables have been set...");
         console.log("To work properly, this application needs to be set in the application settings the following parameters : ");
@@ -45,9 +44,7 @@ module.exports = async function (context, myTimer) {
         console.log("DELAY_BEFORE_DESTRUCTION");
         console.log("CLIENT_ID");
         console.log("CLIENT_SECRET");
-        context.done();
     }
-
 };
 
 /**
@@ -72,7 +69,7 @@ var deleteUnUsedResourceGroups = async function (){
         }
     }
     var resourceGroupsToDeletePromised = resourceGroupNamesToDelete.map(deleteResourceGroup.bind(null, subscriptionId, accessToken));
-    Promise.all(resourceGroupsToDeletePromised);
+    await Promise.all(resourceGroupsToDeletePromised);
 }
 
 /**
