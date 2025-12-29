@@ -81,6 +81,7 @@ jobs:
               --output none
           fi
           AI_CONN=$(az monitor app-insights component show --app "$AI_NAME" --resource-group "$RESOURCE_GROUP" --query "connectionString" -o tsv)
+          AI_KEY=$(az monitor app-insights component show --app "$AI_NAME" --resource-group "$RESOURCE_GROUP" --query "instrumentationKey" -o tsv)
 
           echo "Ensuring Function App"
           if ! az functionapp show --name "$FUNCTION_APP" --resource-group "$RESOURCE_GROUP" --output none 2>/dev/null; then
@@ -122,6 +123,7 @@ jobs:
               "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING=$STORAGE_CONN" \
               "WEBSITE_CONTENTSHARE=$CONTENT_SHARE" \
               "APPLICATIONINSIGHTS_CONNECTION_STRING=$AI_CONN" \
+              "APPINSIGHTS_INSTRUMENTATIONKEY=$AI_KEY" \
               "WEBSITE_ENABLE_SYNC_UPDATE_SITE=true" \
               "WEBSITE_NODE_DEFAULT_VERSION=~20" \
               "WEBSITE_RUN_FROM_PACKAGE=1" \

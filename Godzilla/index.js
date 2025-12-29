@@ -1,5 +1,8 @@
 var request = require('request');
+var appInsights = require('applicationinsights');
 var console = {};
+
+var telemetryClient = null;
 
 /**
     Retrieving all the application settings that are mandatory. 
@@ -16,9 +19,38 @@ var resource_group_exclusions = process.env.RESOURCE_GROUP_EXCLUSIONS
     : null;
 var delay_before_destruction = process.env.DELAY_BEFORE_DESTRUCTION;
 
+var initTelemetry = function () {
+    if (telemetryClient) {
+        return telemetryClient;
+    }
+
+    var connString = process.env.APPLICATIONINSIGHTS_CONNECTION_STRING;
+    var ikey = process.env.APPINSIGHTS_INSTRUMENTATIONKEY;
+    try {
+        if (connString) {
+            appInsights.setup(connString);
+        } else if (ikey) {
+            appInsights.setup(ikey);
+        } else {
+            return null;
+        }
+        appInsights.setAutoCollectConsole(true, true);
+        appInsights.setAutoCollectDependencies(false);
+        appInsights.setAutoCollectExceptions(true);
+        appInsights.setAutoCollectPerformance(false);
+        appInsights.setAutoCollectRequests(false);
+        appInsights.start();
+        telemetryClient = appInsights.defaultClient;
+    } catch (err) {
+        return null;
+    }
+    return telemetryClient;
+};
+
 module.exports = async function (context, myTimer) {
     var timeStamp = new Date().toISOString();
     console = context;
+    var telemetry = initTelemetry();
 
     var deadline = new Date();
     deadline.setTime(deadline.getTime() - (parseInt(delay_before_destruction)*1000));
@@ -34,8 +66,24 @@ module.exports = async function (context, myTimer) {
         console.log("For the others, they will be deleted if they were created before : ");
         console.log(deadline);  
         console.log("Starting to analyse...");
-        await deleteUnUsedResourceGroups();
+        var summary = await deleteUnUsedResourceGroups();
         console.log("Work completed...");
+        console.log("Summary : ");
+        console.log(summary);
+        if (telemetry) {
+            telemetry.trackEvent({
+                name: "GodzillaTimerRun",
+                properties: {
+                    evaluated: summary.evaluated,
+                    excluded: summary.excluded,
+                    deletions: summary.deletions,
+                    delayBeforeDestructionSeconds: delay_before_destruction,
+                    subscription: subscriptionId,
+                    timestamp: timeStamp
+                }
+            });
+            telemetry.flush({ isAppCrashing: false });
+        }
     }else{
         console.log("Sorry but not all the required environment variables have been set...");
         console.log("To work properly, this application needs to be set in the application settings the following parameters : ");
@@ -59,17 +107,28 @@ var deleteUnUsedResourceGroups = async function (){
     var accessToken = await getAccessToken(tenant_id, client_id, client_secret);
     var resourceGroups = await getResourceGroupList(subscriptionId, accessToken);
     var resourceGroupNamesToDelete = new Array();
+    var excludedCount = 0;
     for(var resourceGroup of resourceGroups){
         var deploymentsHistory = await getDeploymentsHistoryByResourceGroup(subscriptionId, accessToken, resourceGroup.name);
         var iCanDestroy = canIToDestroyThisResourceGroup(deploymentsHistory);
         var resourceGroupShouldBeExcluded = resource_group_exclusions.indexOf(resourceGroup.name.toUpperCase()) !== -1;
-        if(iCanDestroy && !resourceGroupShouldBeExcluded){
+        if(resourceGroupShouldBeExcluded){
+            excludedCount++;
+            console.log("Resource group excluded from destruction : " + resourceGroup.name);
+            continue;
+        }
+        if(iCanDestroy){
             resourceGroupNamesToDelete.push(resourceGroup.name);
             console.log("Ressource group supprimé : " + resourceGroup.name);
         }
     }
     var resourceGroupsToDeletePromised = resourceGroupNamesToDelete.map(deleteResourceGroup.bind(null, subscriptionId, accessToken));
     await Promise.all(resourceGroupsToDeletePromised);
+    return {
+        evaluated: resourceGroups.length,
+        excluded: excludedCount,
+        deletions: resourceGroupNamesToDelete.length
+    };
 }
 
 /**
