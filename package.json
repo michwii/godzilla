@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "dependencies": {
+    "applicationinsights": "^3.5.1",
     "request": "^2.87.0"
   },
   "devDependencies": {},
