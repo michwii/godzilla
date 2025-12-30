@@ -66,20 +66,6 @@ jobs:
             echo "Storage account $STORAGE_ACCOUNT already exists"
           fi
 
-          echo "Ensuring Application Insights (workspace-based)"
-          AI_NAME="ai-${FUNCTION_APP}"
-          if ! az monitor app-insights component show --app "$AI_NAME" --resource-group "$RESOURCE_GROUP" --output none 2>/dev/null; then
-            az monitor app-insights component create \
-              --app "$AI_NAME" \
-              --location "$LOCATION" \
-              --kind web \
-              --resource-group "$RESOURCE_GROUP" \
-              --application-type other \
-              --output none
-          fi
-          AI_CONN=$(az monitor app-insights component show --app "$AI_NAME" --resource-group "$RESOURCE_GROUP" --query "connectionString" -o tsv)
-          AI_KEY=$(az monitor app-insights component show --app "$AI_NAME" --resource-group "$RESOURCE_GROUP" --query "instrumentationKey" -o tsv)
-
           echo "Ensuring Function App"
           if ! az functionapp show --name "$FUNCTION_APP" --resource-group "$RESOURCE_GROUP" --output none 2>/dev/null; then
           az functionapp create \
@@ -119,8 +105,6 @@ jobs:
               "AzureWebJobsStorage=$STORAGE_CONN" \
               "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING=$STORAGE_CONN" \
               "WEBSITE_CONTENTSHARE=$CONTENT_SHARE" \
-              "APPLICATIONINSIGHTS_CONNECTION_STRING=$AI_CONN" \
-              "APPINSIGHTS_INSTRUMENTATIONKEY=$AI_KEY" \
               "WEBSITE_ENABLE_SYNC_UPDATE_SITE=true" \
               "SCM_DO_BUILD_DURING_DEPLOYMENT=true" \
               "ENABLE_ORYX_BUILD=true" \
