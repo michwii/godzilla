@@ -70,7 +70,19 @@ def _get_data_from_ms_api(access_token, url, method="GET"):
                 return None
             payload = json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
-        raise RuntimeError(f"MS API request failed: {exc.code}") from exc
+        body = exc.read().decode("utf-8")
+        code = None
+        message = None
+        try:
+            details = json.loads(body)
+            code = details.get("error", {}).get("code")
+            message = details.get("error", {}).get("message")
+        except Exception:
+            pass
+        details = f" {code}: {message}" if code or message else ""
+        raise RuntimeError(
+            f"MS API request failed: {exc.code} {method} {url}{details}"
+        ) from exc
     return payload.get("value", [])
 
 
