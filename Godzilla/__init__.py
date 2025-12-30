@@ -3,7 +3,10 @@ import logging
 import os
 
 import azure.functions as func
-import requests
+import json
+import urllib.error
+import urllib.parse
+import urllib.request
 
 
 SUBSCRIPTION_ID = os.getenv("SUBSCRIPTION_ID")
@@ -42,11 +45,16 @@ def _get_access_token(tenant_id, client_id, client_secret):
         "grant_type": "client_credentials",
         "client_id": client_id,
         "client_secret": client_secret,
-        "resource": "https://management.core.windows.net/",
+        "resource": "https://management.azure.com/",
     }
-    response = requests.post(url, data=data, timeout=30)
-    response.raise_for_status()
-    payload = response.json()
+    body = urllib.parse.urlencode(data).encode("utf-8")
+    request = urllib.request.Request(url, data=body, method="POST")
+    request.add_header("Content-Type", "application/x-www-form-urlencoded")
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        raise RuntimeError(f"Token request failed: {exc.code}") from exc
     token = payload.get("access_token")
     if not token:
         raise RuntimeError("No access token received from Azure AD.")
@@ -54,12 +62,15 @@ def _get_access_token(tenant_id, client_id, client_secret):
 
 
 def _get_data_from_ms_api(access_token, url, method="GET"):
-    headers = {"Authorization": f"Bearer {access_token}"}
-    response = requests.request(method, url, headers=headers, timeout=60)
-    response.raise_for_status()
-    if method == "DELETE":
-        return None
-    payload = response.json()
+    request = urllib.request.Request(url, method=method)
+    request.add_header("Authorization", f"Bearer {access_token}")
+    try:
+        with urllib.request.urlopen(request, timeout=60) as response:
+            if method == "DELETE":
+                return None
+            payload = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        raise RuntimeError(f"MS API request failed: {exc.code}") from exc
     return payload.get("value", [])
 
 
@@ -142,28 +153,34 @@ def _delete_unused_resource_groups(deadline):
 
 
 def run_cleanup():
-    if not _all_requirements_present():
-        message = (
-            "Missing required environment variables. Required: TENANT_ID, "
-            "SUBSCRIPTION_ID, DELAY_BEFORE_DESTRUCTION, CLIENT_ID, CLIENT_SECRET, "
-            "RESOURCE_GROUP_EXCLUSIONS"
+    try:
+        if not _all_requirements_present():
+            message = (
+                "Missing required environment variables. Required: TENANT_ID, "
+                "SUBSCRIPTION_ID, DELAY_BEFORE_DESTRUCTION, CLIENT_ID, CLIENT_SECRET, "
+                "RESOURCE_GROUP_EXCLUSIONS"
+            )
+            logging.error(message)
+            return None, message
+
+        delay_seconds = int(DELAY_BEFORE_DESTRUCTION)
+        now = datetime.datetime.now(datetime.timezone.utc)
+        deadline = now - datetime.timedelta(seconds=delay_seconds)
+
+        logging.info(
+            "Resource groups excluded from destruction: %s", RESOURCE_GROUP_EXCLUSIONS_LIST
         )
-        logging.error(message)
-        return None, message
+        logging.info("Deleting resource groups created before: %s", deadline.isoformat())
+        logging.info("Starting analysis...")
 
-    delay_seconds = int(DELAY_BEFORE_DESTRUCTION)
-    now = datetime.datetime.now(datetime.timezone.utc)
-    deadline = now - datetime.timedelta(seconds=delay_seconds)
+        summary = _delete_unused_resource_groups(deadline)
 
-    logging.info("Resource groups excluded from destruction: %s", RESOURCE_GROUP_EXCLUSIONS_LIST)
-    logging.info("Deleting resource groups created before: %s", deadline.isoformat())
-    logging.info("Starting analysis...")
-
-    summary = _delete_unused_resource_groups(deadline)
-
-    logging.info("Work completed.")
-    logging.info("Summary: %s", summary)
-    return summary, None
+        logging.info("Work completed.")
+        logging.info("Summary: %s", summary)
+        return summary, None
+    except Exception as exc:
+        logging.exception("Godzilla run failed.")
+        return None, str(exc)
 
 
 def main(mytimer: func.TimerRequest) -> None:
