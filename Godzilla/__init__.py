@@ -141,21 +141,18 @@ def _delete_unused_resource_groups(deadline):
     }
 
 
-def main(mytimer: func.TimerRequest) -> None:
-    now = datetime.datetime.now(datetime.timezone.utc)
-
-    if mytimer.past_due:
-        logging.warning("Python is running late!")
-
+def run_cleanup():
     if not _all_requirements_present():
-        logging.error("Missing required environment variables.")
-        logging.error(
-            "Required: TENANT_ID, SUBSCRIPTION_ID, DELAY_BEFORE_DESTRUCTION, CLIENT_ID, "
-            "CLIENT_SECRET, RESOURCE_GROUP_EXCLUSIONS"
+        message = (
+            "Missing required environment variables. Required: TENANT_ID, "
+            "SUBSCRIPTION_ID, DELAY_BEFORE_DESTRUCTION, CLIENT_ID, CLIENT_SECRET, "
+            "RESOURCE_GROUP_EXCLUSIONS"
         )
-        return
+        logging.error(message)
+        return None, message
 
     delay_seconds = int(DELAY_BEFORE_DESTRUCTION)
+    now = datetime.datetime.now(datetime.timezone.utc)
     deadline = now - datetime.timedelta(seconds=delay_seconds)
 
     logging.info("Resource groups excluded from destruction: %s", RESOURCE_GROUP_EXCLUSIONS_LIST)
@@ -166,3 +163,10 @@ def main(mytimer: func.TimerRequest) -> None:
 
     logging.info("Work completed.")
     logging.info("Summary: %s", summary)
+    return summary, None
+
+
+def main(mytimer: func.TimerRequest) -> None:
+    if mytimer.past_due:
+        logging.warning("Python is running late!")
+    run_cleanup()
