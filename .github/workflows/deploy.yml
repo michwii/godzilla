@@ -172,11 +172,7 @@ jobs:
             DELAY_VALUE="$CURRENT_DELAY"
           fi
 
-          if [ -z "$DELAY_VALUE" ]; then
-            echo "No DELAY_BEFORE_DESTRUCTION value was provided via repository variable/secret and none exists on the Function App."
-            echo "Please configure either a repository variable (recommended) or a secret named DELAY_BEFORE_DESTRUCTION."
-            exit 1
-          fi
+          DELAY_VALUE="1800"
 
           az functionapp config appsettings set \
             --name "$FUNCTION_APP" \
