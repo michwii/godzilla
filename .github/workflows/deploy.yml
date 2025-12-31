@@ -82,7 +82,7 @@ jobs:
           WORKSPACE_ID=$(az monitor log-analytics workspace show --resource-group "$TRANSVERSE_RG" --workspace-name "$WORKSPACE_NAME" --query "id" -o tsv)
 
           echo "Ensuring Application Insights (workspace-based)"
-          AI_NAME="ai-${FUNCTION_APP}"
+          AI_NAME="transversal-appinsights-${{ github.ref_name }}"
           if ! az monitor app-insights component show --app "$AI_NAME" --resource-group "$TRANSVERSE_RG" --output none 2>/dev/null; then
             az monitor app-insights component create \
               --app "$AI_NAME" \
