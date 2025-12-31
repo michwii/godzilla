@@ -39,6 +39,11 @@ def _all_requirements_present():
     )
 
 
+def _is_managed_resource_group(name):
+    lowered = name.lower()
+    return lowered.startswith("ai_") and lowered.endswith("_managed")
+
+
 def _get_access_token(tenant_id, client_id, client_secret):
     url = f"https://login.microsoftonline.com/{tenant_id}/oauth2/token"
     data = {
@@ -142,6 +147,10 @@ def _delete_unused_resource_groups(deadline):
     for resource_group in resource_groups:
         name = resource_group.get("name")
         if not name:
+            continue
+        if _is_managed_resource_group(name):
+            excluded_count += 1
+            logging.info("Managed resource group excluded from destruction: %s", name)
             continue
         if name.upper() in RESOURCE_GROUP_EXCLUSIONS_LIST:
             excluded_count += 1
