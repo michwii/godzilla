@@ -137,12 +137,25 @@ def _delete_resource_group(subscription_id, access_token, resource_group_name):
     )
     _get_data_from_ms_api(access_token, url, method="DELETE")
 
+def _is_resource_lock_error(message):
+    if not message:
+        return False
+    lowered = message.lower()
+    return (
+        "scopelocked" in lowered
+        or "cannotdelete" in lowered
+        or "can not delete" in lowered
+        or "lock" in lowered
+    )
+
 
 def _delete_unused_resource_groups(deadline):
     access_token = _get_access_token(TENANT_ID, CLIENT_ID, CLIENT_SECRET)
     resource_groups = _get_resource_group_list(SUBSCRIPTION_ID, access_token)
     resource_groups_to_delete = []
     excluded_count = 0
+    deletion_errors = []
+    deletions_requested = 0
 
     for resource_group in resource_groups:
         name = resource_group.get("name")
@@ -156,20 +169,42 @@ def _delete_unused_resource_groups(deadline):
             excluded_count += 1
             logging.info("Resource group excluded from destruction: %s", name)
             continue
-        deployments = _get_deployments_history_by_resource_group(
-            SUBSCRIPTION_ID, access_token, name
-        )
+        try:
+            deployments = _get_deployments_history_by_resource_group(
+                SUBSCRIPTION_ID, access_token, name
+            )
+        except Exception as exc:
+            logging.exception(
+                "Failed to retrieve deployments history for resource group: %s", name
+            )
+            deletion_errors.append({"resource_group": name, "step": "deployments", "error": str(exc)})
+            continue
+
         if _can_destroy_resource_group(deployments, deadline):
             resource_groups_to_delete.append(name)
-            logging.info("Resource group deleted: %s", name)
+            logging.info("Resource group marked for deletion: %s", name)
 
     for name in resource_groups_to_delete:
-        _delete_resource_group(SUBSCRIPTION_ID, access_token, name)
+        try:
+            _delete_resource_group(SUBSCRIPTION_ID, access_token, name)
+            logging.info("Resource group deletion requested: %s", name)
+            deletions_requested += 1
+        except Exception as exc:
+            message = str(exc)
+            if _is_resource_lock_error(message):
+                logging.warning(
+                    "Resource group not deleted due to resource lock: %s (%s)", name, message
+                )
+            else:
+                logging.exception("Failed to delete resource group: %s", name)
+            deletion_errors.append({"resource_group": name, "step": "delete", "error": message})
 
     return {
         "evaluated": len(resource_groups),
         "excluded": excluded_count,
-        "deletions": len(resource_groups_to_delete),
+        "deletion_candidates": len(resource_groups_to_delete),
+        "deletions": deletions_requested,
+        "deletion_errors": len(deletion_errors),
     }
 
 
