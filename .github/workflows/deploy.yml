@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 env:
-  NODE_VERSION: '20.x'
+  PYTHON_VERSION: '3.11'
 
 jobs:
   deploy:
@@ -21,17 +21,14 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Install production dependencies
-        run: npm install --only=production
+          python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Archive function package
         run: |
-          zip -r functionapp.zip . -x ".git/*" ".github/*" "functionapp.zip"
+          zip -r functionapp.zip host.json Godzilla GodzillaManual HttpPing requirements.txt
 
       - name: Azure login
         uses: azure/login@v2
@@ -52,6 +49,10 @@ jobs:
           echo "Ensuring resource group $RESOURCE_GROUP in $LOCATION"
           az group create --name "$RESOURCE_GROUP" --location "$LOCATION" --output none
 
+          TRANSVERSE_RG="transverse-${{ github.ref_name }}"
+          echo "Ensuring transverse resource group $TRANSVERSE_RG in $LOCATION"
+          az group create --name "$TRANSVERSE_RG" --location "$LOCATION" --output none
+
           STORAGE_ACCOUNT="$(echo "${FUNCTION_APP//-/}sa" | tr '[:upper:]' '[:lower:]')"
           STORAGE_ACCOUNT="${STORAGE_ACCOUNT:0:22}"
           if ! az storage account show --name "$STORAGE_ACCOUNT" --resource-group "$RESOURCE_GROUP" --output none 2>/dev/null; then
@@ -69,38 +70,50 @@ jobs:
             echo "Storage account $STORAGE_ACCOUNT already exists"
           fi
 
+          echo "Ensuring Log Analytics workspace in $TRANSVERSE_RG"
+          WORKSPACE_NAME="law-${FUNCTION_APP}"
+          if ! az monitor log-analytics workspace show --resource-group "$TRANSVERSE_RG" --workspace-name "$WORKSPACE_NAME" --output none 2>/dev/null; then
+            az monitor log-analytics workspace create \
+              --resource-group "$TRANSVERSE_RG" \
+              --workspace-name "$WORKSPACE_NAME" \
+              --location "$LOCATION" \
+              --output none
+          fi
+          WORKSPACE_ID=$(az monitor log-analytics workspace show --resource-group "$TRANSVERSE_RG" --workspace-name "$WORKSPACE_NAME" --query "id" -o tsv)
+
           echo "Ensuring Application Insights (workspace-based)"
-          AI_NAME="ai-${FUNCTION_APP}"
-          if ! az monitor app-insights component show --app "$AI_NAME" --resource-group "$RESOURCE_GROUP" --output none 2>/dev/null; then
+          AI_NAME="transversal-appinsights-${{ github.ref_name }}"
+          if ! az monitor app-insights component show --app "$AI_NAME" --resource-group "$TRANSVERSE_RG" --output none 2>/dev/null; then
             az monitor app-insights component create \
               --app "$AI_NAME" \
               --location "$LOCATION" \
               --kind web \
-              --resource-group "$RESOURCE_GROUP" \
+              --resource-group "$TRANSVERSE_RG" \
               --application-type other \
+              --workspace "$WORKSPACE_ID" \
               --output none
           fi
-          AI_CONN=$(az monitor app-insights component show --app "$AI_NAME" --resource-group "$RESOURCE_GROUP" --query "connectionString" -o tsv)
-          AI_KEY=$(az monitor app-insights component show --app "$AI_NAME" --resource-group "$RESOURCE_GROUP" --query "instrumentationKey" -o tsv)
+          AI_CONN=$(az monitor app-insights component show --app "$AI_NAME" --resource-group "$TRANSVERSE_RG" --query "connectionString" -o tsv)
+          AI_KEY=$(az monitor app-insights component show --app "$AI_NAME" --resource-group "$TRANSVERSE_RG" --query "instrumentationKey" -o tsv)
 
           echo "Ensuring Function App"
           if ! az functionapp show --name "$FUNCTION_APP" --resource-group "$RESOURCE_GROUP" --output none 2>/dev/null; then
             az functionapp create \
               --name "$FUNCTION_APP" \
               --resource-group "$RESOURCE_GROUP" \
-              --consumption-plan-location "$LOCATION" \
-              --storage-account "$STORAGE_ACCOUNT" \
-              --runtime node \
-              --functions-version 4 \
-              --os-type Linux \
-              --assign-identity \
-              --output none
+            --consumption-plan-location "$LOCATION" \
+            --storage-account "$STORAGE_ACCOUNT" \
+            --runtime python \
+            --functions-version 4 \
+            --os-type Linux \
+            --assign-identity \
+            --output none
           fi
-          echo "Forcing Node 20 runtime"
+          echo "Forcing Python 3.11 runtime"
           az functionapp config set \
             --name "$FUNCTION_APP" \
             --resource-group "$RESOURCE_GROUP" \
-            --linux-fx-version "Node|20" \
+            --linux-fx-version "Python|3.11" \
             --output none
 
           echo "Apply core app settings"
@@ -117,7 +130,7 @@ jobs:
             --name "$FUNCTION_APP" \
             --resource-group "$RESOURCE_GROUP" \
             --settings \
-              "FUNCTIONS_WORKER_RUNTIME=node" \
+              "FUNCTIONS_WORKER_RUNTIME=python" \
               "FUNCTIONS_EXTENSION_VERSION=~4" \
               "AzureWebJobsStorage=$STORAGE_CONN" \
               "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING=$STORAGE_CONN" \
@@ -125,8 +138,13 @@ jobs:
               "APPLICATIONINSIGHTS_CONNECTION_STRING=$AI_CONN" \
               "APPINSIGHTS_INSTRUMENTATIONKEY=$AI_KEY" \
               "WEBSITE_ENABLE_SYNC_UPDATE_SITE=true" \
-              "WEBSITE_NODE_DEFAULT_VERSION=~20" \
-              "WEBSITE_RUN_FROM_PACKAGE=1" \
+              "SCM_DO_BUILD_DURING_DEPLOYMENT=true" \
+              "ENABLE_ORYX_BUILD=true" \
+            --output none
+          az functionapp config appsettings delete \
+            --name "$FUNCTION_APP" \
+            --resource-group "$RESOURCE_GROUP" \
+            --setting-names WEBSITE_RUN_FROM_PACKAGE \
             --output none
 
       - name: Propagate function app settings
@@ -168,11 +186,7 @@ jobs:
             DELAY_VALUE="$CURRENT_DELAY"
           fi
 
-          if [ -z "$DELAY_VALUE" ]; then
-            echo "No DELAY_BEFORE_DESTRUCTION value was provided via repository variable/secret and none exists on the Function App."
-            echo "Please configure either a repository variable (recommended) or a secret named DELAY_BEFORE_DESTRUCTION."
-            exit 1
-          fi
+          DELAY_VALUE="1800"
 
           az functionapp config appsettings set \
             --name "$FUNCTION_APP" \
@@ -185,8 +199,14 @@ jobs:
               "RESOURCE_GROUP_EXCLUSIONS=$RG_EXCLUSIONS" \
               "DELAY_BEFORE_DESTRUCTION=$DELAY_VALUE"
 
-      - name: Deploy to Azure Functions
-        uses: azure/functions-action@v1
-        with:
-          app-name: ${{ secrets.AZURE_FUNCTIONAPP_NAME }}
-          package: functionapp.zip
+      - name: Deploy to Azure Functions (zip deploy)
+        env:
+          FUNCTION_APP: ${{ secrets.AZURE_FUNCTIONAPP_NAME }}
+          RESOURCE_GROUP: ${{ secrets.AZURE_RESOURCE_GROUP }}
+        run: |
+          set -euo pipefail
+          az functionapp deployment source config-zip \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$FUNCTION_APP" \
+            --src functionapp.zip \
+            --timeout 600
