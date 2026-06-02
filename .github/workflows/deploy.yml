@@ -35,7 +35,7 @@ jobs:
 
       - name: Archive function package
         run: |
-          zip -r functionapp.zip host.json Godzilla GodzillaManual HttpPing requirements.txt
+          zip -r functionapp.zip host.json Godzilla GodzillaManual HttpPing requirements.txt .python_packages
 
       - name: Azure login
         uses: azure/login@v2
