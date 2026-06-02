@@ -5,6 +5,7 @@ on:
     branches:
       - test
       - staging
+      - production
 
 permissions:
   id-token: write
@@ -155,20 +156,32 @@ jobs:
           CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
           TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          RG_EXCLUSIONS: ${{ secrets.RESOURCE_GROUP_EXCLUSIONS }}
+          RG_EXCLUSIONS_VAR: ${{ vars.RESOURCE_GROUP_EXCLUSIONS }}
+          RG_EXCLUSIONS_SECRET: ${{ secrets.RESOURCE_GROUP_EXCLUSIONS }}
           REPO_DELAY: ${{ vars.DELAY_BEFORE_DESTRUCTION }}
           SECRET_DELAY: ${{ secrets.DELAY_BEFORE_DESTRUCTION }}
         run: |
           set -euo pipefail
 
           MISSING=0
-          for v in CLIENT_ID CLIENT_SECRET TENANT_ID SUBSCRIPTION_ID RG_EXCLUSIONS; do
+          for v in CLIENT_ID CLIENT_SECRET TENANT_ID SUBSCRIPTION_ID; do
             if [ -z "${!v:-}" ]; then
               echo "Missing required secret: $v"
               MISSING=1
             fi
           done
           if [ "$MISSING" -eq 1 ]; then
+            exit 1
+          fi
+
+          if [ -n "$RG_EXCLUSIONS_VAR" ]; then
+            RG_EXCLUSIONS="$RG_EXCLUSIONS_VAR"
+          else
+            RG_EXCLUSIONS="$RG_EXCLUSIONS_SECRET"
+          fi
+
+          if [ -z "$RG_EXCLUSIONS" ]; then
+            echo "Missing resource group exclusions in GitHub environment variables or secrets."
             exit 1
           fi
 
