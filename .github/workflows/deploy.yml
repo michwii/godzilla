@@ -210,9 +210,9 @@ jobs:
           RESOURCE_GROUP: ${{ secrets.AZURE_RESOURCE_GROUP }}
         run: |
           set -euo pipefail
-          az functionapp deploy \
+          az functionapp deployment source config-zip \
             --resource-group "$RESOURCE_GROUP" \
             --name "$FUNCTION_APP" \
-            --src-path functionapp.zip \
-            --type zip \
+            --src functionapp.zip \
+            --build-remote true \
             --timeout 600
