@@ -27,16 +27,6 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: Install Python dependencies
-        run: |
-          set -euo pipefail
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt --target=".python_packages/lib/site-packages"
-
-      - name: Archive function package
-        run: |
-          zip -r functionapp.zip host.json Godzilla GodzillaManual HttpPing requirements.txt .python_packages
-
       - name: Azure login
         uses: azure/login@v2
         with:
@@ -210,15 +200,10 @@ jobs:
               "RESOURCE_GROUP_EXCLUSIONS=$RG_EXCLUSIONS" \
               "DELAY_BEFORE_DESTRUCTION=$DELAY_VALUE"
 
-      - name: Deploy to Azure Functions (zip deploy)
-        env:
-          FUNCTION_APP: ${{ secrets.AZURE_FUNCTIONAPP_NAME }}
-          RESOURCE_GROUP: ${{ secrets.AZURE_RESOURCE_GROUP }}
-        run: |
-          set -euo pipefail
-          az functionapp deploy \
-            --resource-group "$RESOURCE_GROUP" \
-            --name "$FUNCTION_APP" \
-            --src-path functionapp.zip \
-            --type zip \
-            --timeout 600
+      - name: Deploy to Azure Functions
+        uses: Azure/functions-action@v1
+        id: deploy-to-function-app
+        with:
+          app-name: ${{ secrets.AZURE_FUNCTIONAPP_NAME }}
+          package: '.'
+          remote-build: true
