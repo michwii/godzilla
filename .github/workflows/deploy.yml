@@ -27,6 +27,12 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
+      - name: Install Python dependencies
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt --target=".python_packages/lib/site-packages"
+
       - name: Azure login
         uses: azure/login@v2
         with:
@@ -206,4 +212,3 @@ jobs:
         with:
           app-name: ${{ secrets.AZURE_FUNCTIONAPP_NAME }}
           package: '.'
-          remote-build: true
