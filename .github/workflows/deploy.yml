@@ -123,8 +123,6 @@ jobs:
               "APPLICATIONINSIGHTS_CONNECTION_STRING=$AI_CONN" \
               "APPINSIGHTS_INSTRUMENTATIONKEY=$AI_KEY" \
               "WEBSITE_ENABLE_SYNC_UPDATE_SITE=true" \
-              "SCM_DO_BUILD_DURING_DEPLOYMENT=true" \
-              "ENABLE_ORYX_BUILD=true" \
             --output none
           az functionapp config appsettings delete \
             --name "$FUNCTION_APP" \
