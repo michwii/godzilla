@@ -113,23 +113,13 @@ jobs:
 
           echo "Apply core app settings"
           STORAGE_CONN=$(az storage account show-connection-string --name "$STORAGE_ACCOUNT" --resource-group "$RESOURCE_GROUP" --query connectionString -o tsv)
-          CONTENT_SHARE="$(echo "func-${FUNCTION_APP}" | tr '[:upper:]' '[:lower:]' | cut -c1-60)"
-          echo "Ensuring storage file share $CONTENT_SHARE"
-          az storage share create \
-            --name "$CONTENT_SHARE" \
-            --connection-string "$STORAGE_CONN" \
-            --quota 50 \
-            --output none
 
           az functionapp config appsettings set \
             --name "$FUNCTION_APP" \
             --resource-group "$RESOURCE_GROUP" \
             --settings \
-              "FUNCTIONS_WORKER_RUNTIME=python" \
               "FUNCTIONS_EXTENSION_VERSION=~4" \
               "AzureWebJobsStorage=$STORAGE_CONN" \
-              "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING=$STORAGE_CONN" \
-              "WEBSITE_CONTENTSHARE=$CONTENT_SHARE" \
               "APPLICATIONINSIGHTS_CONNECTION_STRING=$AI_CONN" \
               "APPINSIGHTS_INSTRUMENTATIONKEY=$AI_KEY" \
               "WEBSITE_ENABLE_SYNC_UPDATE_SITE=true" \
