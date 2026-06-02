@@ -113,6 +113,16 @@ jobs:
 
           echo "Apply core app settings"
           STORAGE_CONN=$(az storage account show-connection-string --name "$STORAGE_ACCOUNT" --resource-group "$RESOURCE_GROUP" --query connectionString -o tsv)
+          az functionapp config appsettings delete \
+            --name "$FUNCTION_APP" \
+            --resource-group "$RESOURCE_GROUP" \
+            --setting-names \
+              FUNCTIONS_WORKER_RUNTIME \
+              WEBSITE_CONTENTAZUREFILECONNECTIONSTRING \
+              WEBSITE_CONTENTSHARE \
+              SCM_DO_BUILD_DURING_DEPLOYMENT \
+              ENABLE_ORYX_BUILD \
+            --output none
 
           az functionapp config appsettings set \
             --name "$FUNCTION_APP" \
