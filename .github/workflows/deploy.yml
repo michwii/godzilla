@@ -27,6 +27,12 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
+      - name: Install Python dependencies
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt --target=".python_packages/lib/site-packages"
+
       - name: Archive function package
         run: |
           zip -r functionapp.zip host.json Godzilla GodzillaManual HttpPing requirements.txt
@@ -210,9 +216,9 @@ jobs:
           RESOURCE_GROUP: ${{ secrets.AZURE_RESOURCE_GROUP }}
         run: |
           set -euo pipefail
-          az functionapp deployment source config-zip \
+          az functionapp deploy \
             --resource-group "$RESOURCE_GROUP" \
             --name "$FUNCTION_APP" \
-            --src functionapp.zip \
-            --build-remote true \
+            --src-path functionapp.zip \
+            --type zip \
             --timeout 600
