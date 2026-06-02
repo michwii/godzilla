@@ -106,16 +106,10 @@ jobs:
             --storage-account "$STORAGE_ACCOUNT" \
             --runtime python \
             --functions-version 4 \
-            --os-type Linux \
-            --assign-identity \
-            --output none
+              --os-type Linux \
+              --assign-identity \
+              --output none
           fi
-          echo "Forcing Python 3.11 runtime"
-          az functionapp config set \
-            --name "$FUNCTION_APP" \
-            --resource-group "$RESOURCE_GROUP" \
-            --linux-fx-version "Python|3.11" \
-            --output none
 
           echo "Apply core app settings"
           STORAGE_CONN=$(az storage account show-connection-string --name "$STORAGE_ACCOUNT" --resource-group "$RESOURCE_GROUP" --query connectionString -o tsv)
