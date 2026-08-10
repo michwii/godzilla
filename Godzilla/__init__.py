@@ -239,14 +239,7 @@ def run_cleanup():
             logging.error(message)
             return None, message
 
-        configured_delay_seconds = int(DELAY_BEFORE_DESTRUCTION)
-        delay_seconds = max(configured_delay_seconds, 24 * 60 * 60)
-        if configured_delay_seconds < delay_seconds:
-            logging.warning(
-                "DELAY_BEFORE_DESTRUCTION is below the one-day safety minimum; "
-                "using %s seconds instead.",
-                delay_seconds,
-            )
+        delay_seconds = int(DELAY_BEFORE_DESTRUCTION)
         now = datetime.datetime.now(datetime.timezone.utc)
         deadline = now - datetime.timedelta(seconds=delay_seconds)
 
