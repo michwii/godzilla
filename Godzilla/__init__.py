@@ -259,6 +259,7 @@ def run_cleanup():
         return None, str(exc)
 
 
+# The parameter name must match the `myTimer` name in function.json exactly.
 def main(myTimer: func.TimerRequest) -> None:
     if myTimer.past_due:
         logging.warning("Python is running late!")
