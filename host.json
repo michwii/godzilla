@@ -3,5 +3,17 @@
   "extensionBundle": {
     "id": "Microsoft.Azure.Functions.ExtensionBundle",
     "version": "[3.*, 4.0.0)"
+  },
+  "logging": {
+    "logLevel": {
+      "default": "Information",
+      "Host.Results": "Information",
+      "Function": "Information"
+    },
+    "applicationInsights": {
+      "samplingSettings": {
+        "isEnabled": false
+      }
+    }
   }
 }
