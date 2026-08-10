@@ -8,6 +8,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+from opencensus.ext.azure.log_exporter import AzureLogHandler
 
 SUBSCRIPTION_ID = os.getenv("SUBSCRIPTION_ID")
 TENANT_ID = os.getenv("TENANT_ID")
@@ -15,6 +16,25 @@ CLIENT_ID = os.getenv("CLIENT_ID")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET")
 RESOURCE_GROUP_EXCLUSIONS = os.getenv("RESOURCE_GROUP_EXCLUSIONS")
 DELAY_BEFORE_DESTRUCTION = os.getenv("DELAY_BEFORE_DESTRUCTION")
+
+
+def _configure_application_insights_logging():
+    """Send Python function logs to the configured Application Insights resource."""
+    connection_string = os.getenv("APPLICATIONINSIGHTS_CONNECTION_STRING")
+    if not connection_string:
+        return
+
+    root_logger = logging.getLogger()
+    if any(isinstance(handler, AzureLogHandler) for handler in root_logger.handlers):
+        return
+
+    handler = AzureLogHandler(connection_string=connection_string)
+    handler.setLevel(logging.INFO)
+    root_logger.addHandler(handler)
+    root_logger.setLevel(logging.INFO)
+
+
+_configure_application_insights_logging()
 
 
 def _parse_exclusions(value):
