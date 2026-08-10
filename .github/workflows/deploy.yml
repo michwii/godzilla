@@ -119,7 +119,6 @@ jobs:
             --name "$FUNCTION_APP" \
             --resource-group "$RESOURCE_GROUP" \
             --setting-names \
-              FUNCTIONS_WORKER_RUNTIME \
               WEBSITE_CONTENTAZUREFILECONNECTIONSTRING \
               WEBSITE_CONTENTSHARE \
               SCM_DO_BUILD_DURING_DEPLOYMENT \
@@ -131,6 +130,7 @@ jobs:
             --resource-group "$RESOURCE_GROUP" \
             --settings \
               "FUNCTIONS_EXTENSION_VERSION=~4" \
+              "FUNCTIONS_WORKER_RUNTIME=python" \
               "AzureWebJobsStorage=$STORAGE_CONN" \
               "APPLICATIONINSIGHTS_CONNECTION_STRING=$AI_CONN" \
               "APPINSIGHTS_INSTRUMENTATIONKEY=$AI_KEY" \
