@@ -259,7 +259,7 @@ def run_cleanup():
         return None, str(exc)
 
 
-def main(mytimer: func.TimerRequest) -> None:
-    if mytimer.past_due:
+def main(myTimer: func.TimerRequest) -> None:
+    if myTimer.past_due:
         logging.warning("Python is running late!")
     run_cleanup()
