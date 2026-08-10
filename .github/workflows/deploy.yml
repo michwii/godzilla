@@ -193,7 +193,9 @@ jobs:
             DELAY_VALUE="$CURRENT_DELAY"
           fi
 
-          DELAY_VALUE="1800"
+          # Godzilla runs every 30 minutes, but only deletes a resource group
+          # whose latest ARM deployment is at least one day old.
+          DELAY_VALUE="86400"
 
           az functionapp config appsettings set \
             --name "$FUNCTION_APP" \
