@@ -44,7 +44,7 @@ jobs:
           FUNCTION_APP: ${{ secrets.AZURE_FUNCTIONAPP_NAME }}
           RESOURCE_GROUP: ${{ secrets.AZURE_RESOURCE_GROUP }}
           SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          LOCATION: "francecentral"
+          LOCATION: "westeurope"
         run: |
           set -euo pipefail
           az account set --subscription "$SUBSCRIPTION_ID"
