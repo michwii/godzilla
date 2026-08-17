@@ -31,7 +31,13 @@ jobs:
         run: |
           set -euo pipefail
           python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt --target=".python_packages/lib/site-packages"
+          python -m pip install \
+            --target=".python_packages/lib/site-packages" \
+            --platform manylinux2014_x86_64 \
+            --implementation cp \
+            --python-version "$PYTHON_VERSION" \
+            --only-binary=:all: \
+            -r requirements.txt
 
       - name: Azure login
         uses: azure/login@v2
