@@ -107,6 +107,7 @@ jobs:
             --consumption-plan-location "$LOCATION" \
             --storage-account "$STORAGE_ACCOUNT" \
             --runtime python \
+            --runtime-version "$PYTHON_VERSION" \
             --functions-version 4 \
               --os-type Linux \
               --assign-identity \
