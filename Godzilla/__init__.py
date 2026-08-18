@@ -114,7 +114,7 @@ def _get_data_from_ms_api(access_token, url, method="GET"):
 def _get_resource_group_list(subscription_id, access_token):
     url = (
         "https://management.azure.com/subscriptions/"
-        f"{subscription_id}/resourcegroups?api-version=2017-05-10"
+        f"{subscription_id}/resourcegroups?api-version=2021-04-01"
     )
     return _get_data_from_ms_api(access_token, url)
 
@@ -129,7 +129,7 @@ def _get_deployments_history_by_resource_group(subscription_id, access_token, re
 
 
 def _get_last_deployment(deployments_history):
-    last_date = datetime.datetime(1970, 1, 1, tzinfo=datetime.timezone.utc)
+    last_date = None
     for deployment in deployments_history:
         timestamp = deployment.get("properties", {}).get("timestamp")
         if not timestamp:
@@ -140,13 +140,29 @@ def _get_last_deployment(deployments_history):
             )
         except ValueError:
             continue
-        if deployment_date > last_date:
+        if last_date is None or deployment_date > last_date:
             last_date = deployment_date
     return last_date
 
 
-def _can_destroy_resource_group(deployments_history, deadline):
+def _get_resource_group_creation_date(resource_group):
+    created_at = resource_group.get("systemData", {}).get("createdAt")
+    if not created_at:
+        return None
+    try:
+        return datetime.datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _can_destroy_resource_group(deployments_history, resource_group, deadline):
     latest = _get_last_deployment(deployments_history)
+    if latest is None:
+        latest = _get_resource_group_creation_date(resource_group)
+    if latest is None:
+        # Do not delete a resource group if Azure did not return a trustworthy
+        # creation date. This is safer than treating it as an old deployment.
+        return False
     return latest <= deadline
 
 
@@ -200,7 +216,7 @@ def _delete_unused_resource_groups(deadline):
             deletion_errors.append({"resource_group": name, "step": "deployments", "error": str(exc)})
             continue
 
-        if _can_destroy_resource_group(deployments, deadline):
+        if _can_destroy_resource_group(deployments, resource_group, deadline):
             resource_groups_to_delete.append(name)
             logging.info("Resource group marked for deletion: %s", name)
 
