@@ -160,9 +160,7 @@ def _can_destroy_resource_group(deployments_history, resource_group, deadline):
     if latest is None:
         latest = _get_resource_group_creation_date(resource_group)
     if latest is None:
-        # Do not delete a resource group if Azure did not return a trustworthy
-        # creation date. This is safer than treating it as an old deployment.
-        return False
+        return True
     return latest <= deadline
 
 
